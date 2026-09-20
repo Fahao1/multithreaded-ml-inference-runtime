@@ -1,9 +1,9 @@
 # Measured local example
 
-Historical implementation measurements, retained unchanged. The pre-publication
-audit normalized identifying paths in `environment.json` but preserved timestamps,
-hashes, and all measured values. Its newer small-workload checks are recorded
-separately in [audit-smoke](../audit-smoke/README.md); the full experiment was not rerun.
+Historical implementation measurements with timestamps, hashes, and measured values
+preserved. Identifying local paths in `environment.json` were normalized before
+publication. Later checks are recorded in [verification](../../docs/verification.md);
+the full experiment was not rerun.
 
 These are actual measurements from the included executable and model, not expected
 or synthesized results. Collected 2026-09-20 06:53 UTC on macOS 15.7.9 ARM64,

@@ -1,5 +1,7 @@
 # Multithreaded ML Inference Runtime
 
+[![Linux quality checks](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/workflows/ci.yml)
+
 A focused **C++17 CPU inference runtime** with a worker pool, futures, dynamic
 batching, and reproducible NumPy tooling. It demonstrates how model execution,
 request scheduling, ownership, and performance measurement fit together without
@@ -8,7 +10,9 @@ depending on a machine-learning framework or downloading a C++ test framework.
 The runtime solves a narrow problem: load a small, trained sequential model once,
 then serve concurrent predictions while preserving each request's result. It is
 an educational systems project, not a replacement for TensorFlow, PyTorch, or ONNX
-Runtime. Linux is the CI target; the implementation also builds and runs on macOS.
+Runtime. Verified platforms are Ubuntu 24.04 x86_64 in GitHub Actions and macOS
+15.7.9 ARM64 locally. Linux builds use GCC 13.3; static analysis uses LLVM 17.0.6.
+See [verification results](docs/verification.md) for the executed checks and limits.
 
 ## Scope
 
@@ -257,7 +261,7 @@ observations are reported.
 
 ## Sanitizers and developer tools
 
-The audit ran each sanitizer in a separate build. These commands use the locally
+Linux CI and local verification run each sanitizer in a separate build. These commands use the locally
 verified Apple Clang configuration; ThreadSanitizer must not be combined with ASan:
 
 ```bash
@@ -281,7 +285,7 @@ TSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-tsan --output-on-failure
 
 Apple Clang on this macOS ARM64 host rejects `-fsanitize=leak`; its ASan runtime
 also rejects `detect_leaks=1`. Local ASan passes therefore **do not verify leaks**.
-Linux CI explicitly enables leak detection and first checks that a temporary known
+Linux CI passed with leak detection enabled and confirmed that a temporary known
 leak is detected. That probe is separate from normal build and CTest targets.
 
 Use LLVM 17 developer tools with the repository's `.clang-format` and `.clang-tidy`.
@@ -309,14 +313,17 @@ cmake --build build-quality --target format-check
 cmake --build build-quality --target tidy-check
 ```
 
-On macOS ARM64, clean Release/Debug tests, separate ASan/UBSan/TSan tests, repeated
-concurrency stress, NumPy validation, and Apple clang-format 17 checks passed.
-clang-tidy is unavailable locally. Linux execution, Linux formatting/static
-analysis, and leak detection remain **pending the first Linux CI run**. The workflow
-also installs Python requirements, runs integration tests and repeated stress in
-all five build configurations, and smoke-tests benchmarks in Release.
-[Verification details](docs/verification.md) record the commands, one corrected
-test-harness defect, and the remaining verification gaps.
+Linux CI passed all six jobs: Release, Debug, ASan with leak detection, UBSan,
+TSan, and LLVM 17 formatting/static analysis. Every build configuration passed all
+five CTest entries and three additional concurrency stress repetitions. The Release
+job also generated a model and completed benchmark CSV/JSON and plotting checks.
+No tests, numerical tolerances, sanitizer coverage, or analyzer checks were weakened.
+
+On macOS ARM64, Release/Debug, separate ASan/UBSan/TSan, repeated stress, NumPy,
+and Apple clang-format 17 checks also passed. clang-tidy is unavailable locally;
+its successful result comes from Linux CI. Local LeakSanitizer is unsupported.
+[Verification details](docs/verification.md) link the successful Linux run, record
+compiler/tool versions, and explain the failures corrected before publication.
 
 ## Limits and sensible next steps
 
@@ -331,9 +338,8 @@ Timeouts bound batch collection, not total latency. A failing row can fail its
 whole dynamic batch. Model saving is not crash-atomic. This project has tests and
 sanitizer evidence, not production hardening or a formal concurrency proof.
 
-The next useful work is to run the supplied Linux CI, measure larger models and
-longer workloads, then profile before adding BLAS, reusable worker buffers, or
-bounded admission. Add an open-loop benchmark when evaluating service-level
+The next useful work is to measure larger models and longer workloads, then
+profile before adding BLAS, reusable worker buffers, or bounded admission. Add an open-loop benchmark when evaluating service-level
 latency under overload.
 
 Licensed under the [MIT License](LICENSE).

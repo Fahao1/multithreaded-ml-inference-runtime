@@ -1,233 +1,153 @@
 # Verification
 
-Local macOS ARM64 checks passed on 2026-09-20 after correcting one test-harness
-portability defect. Linux execution, Linux leak detection, and clang-tidy analysis
-remain pending the private GitHub verification workflow.
+Linux verification completed on **2026-09-20** in a private GitHub repository before
+public publication. The [successful implementation run](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885)
+verified commit `64b7a6f636c526f7e2cf42669e07f04399bcfadf`. All six jobs passed.
+The README badge follows subsequent runs on `main`; documentation changes also run
+the complete workflow.
 
-## Local environment
+## Linux environment and results
 
-macOS 15.7.9 / Darwin 24.6.0, ARM64, 12 reported logical CPUs. Apple Clang
-17.0.0 (`clang-1700.0.13.5`), CMake/CTest 4.4.3, Python 3.13.7, NumPy 2.5.3,
-matplotlib 3.11.2. This follow-up used the existing project virtual environment.
-An isolated requirements-only environment was also verified before publication.
+GitHub-hosted `ubuntu-24.04`, **Ubuntu 24.04.5 LTS, x86_64**, runner image
+`20260907.300.1`. Build/test compiler: **GCC 13.3.0**
+(`Ubuntu 13.3.0-6ubuntu2~24.04.1`). CMake/CTest **3.31.6**, Python **3.12.14**,
+NumPy **2.5.3**, matplotlib **3.11.2**. Quality tools and analysis compiler:
+**Clang, clang-format, and clang-tidy 17.0.6** from Ubuntu's LLVM 17 packages.
 
-Five build trees were created under `/tmp/mlrt-quality-cIxd2X`; existing project
-builds were preserved. Logs, command/exit-code records (`checks.json` and
-`smoke-checks.json`), before-format snapshots, and the leak probes are in that
-local temporary directory. Temporary files are not part of the proposed commit.
+Each job starts from a clean checkout. The build jobs use GCC 13.3.0; the quality
+job uses LLVM 17.0.6 and the actual exported compilation database.
 
-## Formatting and static analysis
+- [Release — passed](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885/job/106149132246):
+  five CTest entries, three additional stress repetitions, and benchmark smoke.
+- [Debug — passed](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885/job/106149132266):
+  five CTest entries and three additional stress repetitions.
+- [ASan and leaks — passed](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885/job/106149132285):
+  known-leak detection probe, five CTest entries with leak detection enabled,
+  and three additional stress repetitions.
+- [UBSan — passed](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885/job/106149132356):
+  five CTest entries and three additional stress repetitions.
+- [TSan — passed](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885/job/106149132333):
+  five CTest entries and three additional stress repetitions; no race report.
+- [LLVM 17 quality — passed](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537535885/job/106149132093):
+  all 12 owned C++ files passed formatting, and all seven translation units,
+  including tests, passed clang-tidy. This job analyzes sources; it does not run CTest.
 
-- **Local formatting passed.** `xcrun --find clang-format` found the executable
-  in the Apple command-line tools although it was absent from PATH. Version:
-  `Apple clang-format version 17.0.0 (clang-1700.0.13.5)`.
-- The original `--dry-run --Werror` produced 621 formatting diagnostics across
-  all 12 owned C++ files. The repository's `.clang-format` was applied to only those
-  files. The final dry-run and CMake `format-check` target passed.
-- A deliberately misformatted function in a temporary source copy made
-  `format-check` fail with exit code 2. No intentional violation remains in the
-  project. The formatted files exactly equal the formatter's output from their
-  saved originals; there were no manual C++ logic changes.
-- **Local clang-tidy is unavailable.** PATH, versioned executable names, xcrun,
-  Apple toolchains, and common Homebrew LLVM locations were checked. Its version,
-  warning count, and analysis outcome are unknown; no static-analysis pass or
-  warning-free result is claimed. No analyzer warning was suppressed or declared
-  harmless without analysis.
-- CMake now supplies optional `format-check`, `format`, and `tidy-check` targets.
-  They explicitly select owned `src`, `apps`, `tests`, and public-header files.
-  Tests are included in analysis. Seven translation units appear in the actual
-  compilation database; dependencies and generated files are not selected.
-- `.clang-tidy` retains the enabled bugprone, performance, and selected modernize
-  checks, includes CLI headers as well as public headers, and treats enabled
-  warnings as errors. Linux CI installs LLVM major version 17 and runs both checks.
+The five CTest entries are `runtime_tests`, `concurrency_stress`, `metrics_tests`,
+`numpy_validation`, and `tool_tests`. This gives **25 successful CTest entries**
+across five configurations, plus **15 additional stress repetitions**. Each stress
+invocation checks 16,384 request/result associations, accepted shutdown-race work,
+and 74 engine lifecycles. The complete run therefore checked **327,680 normal
+stress results and 1,480 engine lifecycles**, plus the varying shutdown-race counts.
+No accepted future was left unresolved, and no deadlock or sanitizer failure was observed.
 
-Local formatting commands (run from the repository root):
+NumPy validation tested ten configurations per build, including synchronous,
+concurrent, and dynamically batched execution, sigmoid extremes, and softmax.
+Maximum absolute error across these Linux jobs was **4.76e-7**, within unchanged
+`atol=2e-6, rtol=2e-5`; predicted classes also matched.
 
-```bash
-source .venv/bin/activate
-xcrun --find clang-format
-"$(xcrun --find clang-format)" --version
-"$(xcrun --find clang-format)" --style=file --dry-run --Werror \
-  include/ml_runtime/*.hpp src/*.cpp apps/*.cpp apps/*.hpp tests/*.cpp
-cmake -S . -B /tmp/mlrt-quality-cIxd2X/release -DCMAKE_BUILD_TYPE=Release \
-  -DPython3_EXECUTABLE="$PWD/.venv/bin/python" -DMLRT_REQUIRE_PYTHON_TESTS=ON \
-  -DMLRT_CLANG_FORMAT="$(xcrun --find clang-format)"
-cmake --build /tmp/mlrt-quality-cIxd2X/release --target format
-cmake --build /tmp/mlrt-quality-cIxd2X/release --target format-check
-```
+The Release smoke benchmark completed five configurations with 128 measured and
+32 warm-up requests per run: **640 measured requests**, excluding 160 warm-ups.
+The script validated CLI metrics JSON, saved raw CSV/environment metadata, and
+produced all four plots. This is a short pipeline check, not evidence of stable
+performance gains. Published longer benchmark data remains explicitly labeled
+as historical macOS measurements in [the measurement report](../benchmarks/example-run/README.md).
 
-## Builds, tests, sanitizers, and the corrected defect
+## Sanitizer evidence
 
-Clean Release and Debug builds each passed **all five CTest entries**:
-`runtime_tests`, `concurrency_stress`, `metrics_tests`, `numpy_validation`, and
-`tool_tests`. Separate AddressSanitizer, UndefinedBehaviorSanitizer, and
-ThreadSanitizer builds also passed all five entries. Each configuration additionally
-passed three stress repetitions. Compiler warnings `-Wall -Wextra -Wpedantic`
-were active; no compiler warnings were emitted.
+ASan, UBSan, and TSan use separate Debug builds with the matching `-fsanitize`
+compile and link option. TSan is never combined with another sanitizer.
 
-The first Release test run failed in `tool_tests`: its generated mock executable
-put the virtual-environment interpreter path directly into a shebang. The space in
-the workspace path prevented launching it. Earlier tests from a temporary path
-without spaces did not expose this. The mock now uses `/usr/bin/env python3` with
-PATH explicitly selecting the current interpreter's directory. The existing
-failed/stale/missing/non-finite benchmark regression cases all pass from this
-workspace, including its space. This was a test-harness defect, not a runtime
-inference defect. No numerical tolerances were changed.
+The Linux ASan job uses `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1` and
+`LSAN_OPTIONS=exitcode=23`. Its temporary canary reported **123 bytes leaked in one
+allocation** and returned the required exit code 23. The workflow explicitly checks
+both the expected diagnostic and exit status. This proves leak detection was active;
+the following real runtime/integration tests then passed with that detection enabled.
+The canary is outside the source tree and is not a normal build or CTest target.
 
-Twenty successful post-fix stress invocations exercised **327,680 uniquely checked
-normal request results**, additional accepted shutdown-race requests, and **1,480
-engine lifecycles**. Checks cover 1/4 workers, batch sizes 1/16, eight concurrent
-producers, drained shutdown races, repeated empty shutdown/destruction, and exact
-request-result association. Unit tests additionally verify size and timeout
-batch triggers, partial flushes, future exceptions, and submission after shutdown.
-No sanitizer diagnostic, unresolved accepted future, or deadlock was observed.
+UBSan uses `halt_on_error=1:print_stacktrace=1`; TSan uses `halt_on_error=1`.
+No suppressions, reduced coverage, `continue-on-error`, or relaxed numerical
+tolerances were introduced to obtain successful results.
 
-Compile databases were inspected: all seven translation units in each sanitizer
-build include the requested sanitizer flag; all three executable link commands
-also include it. The sanitizers were never combined in this follow-up.
+## Failures corrected during private verification
 
-These are the commands used for each configuration (`release`, `debug`, `asan`,
-`ubsan`, `tsan`); the first Release build was fresh, and its tests were rerun after
-the Python-only launcher fix:
+The failed runs and normal corrective commits remain visible in repository history.
 
-```bash
-source .venv/bin/activate
-quality_dir=/tmp/mlrt-quality-cIxd2X
-for configuration in release debug asan ubsan tsan; do
-  build_type=Debug
-  sanitizer=
-  case "$configuration" in
-    release) build_type=Release ;;
-    asan) sanitizer=address ;;
-    ubsan) sanitizer=undefined ;;
-    tsan) sanitizer=thread ;;
-  esac
-  cmake -S . -B "$quality_dir/$configuration" \
-    -DCMAKE_BUILD_TYPE="$build_type" -DMLRT_SANITIZER="$sanitizer" \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-    -DPython3_EXECUTABLE="$PWD/.venv/bin/python" -DMLRT_REQUIRE_PYTHON_TESTS=ON \
-    -DMLRT_CLANG_FORMAT="$(xcrun --find clang-format)"
-  cmake --build "$quality_dir/$configuration" --parallel 4
-  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
-  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 TSAN_OPTIONS=halt_on_error=1 \
-    ctest --test-dir "$quality_dir/$configuration" --output-on-failure
-  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
-  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 TSAN_OPTIONS=halt_on_error=1 \
-    ctest --test-dir "$quality_dir/$configuration" -R concurrency_stress \
-      --repeat until-fail:3 --output-on-failure
-done
-```
+1. [Initial run](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537133042):
+   all five build/test jobs passed, but the quality job failed before analysis.
+   Bare executable-name overrides were interpreted as relative CMake FILEPATH
+   values. Removing those redundant overrides let the existing `find_program`
+   discovery resolve the installed LLVM 17 binaries. This was a workflow
+   configuration error, not an inference defect.
+2. [Second run](https://github.com/Fahao1/multithreaded-ml-inference-runtime/actions/runs/35537259586):
+   formatting and all five build/test jobs passed; clang-tidy reported 32 project
+   diagnostics. Fixes made numeric conversions explicit in metrics/test code,
+   performed size/count multiplication in the intended wide type, reserved known
+   test-vector capacities, and made the metrics test report unexpected exceptions
+   while explicitly checking expected empty-input rejection. Its numeric test
+   helper now also rejects non-finite results. These were type-clarity,
+   test-performance, and test-error-reporting findings; no race was reported.
+3. The resulting implementation passed all six jobs in the successful run linked
+   above. Local Release, Debug, separate sanitizers, NumPy tests, repeated stress,
+   formatting, and a short benchmark were rerun after the C++ changes.
 
-The loop consolidates the separately executed commands; each run enabled the
-relevant sanitizer environment option. Use a new temporary directory to reproduce
-fresh builds. The zero-leak-detection setting above is specific to this macOS host.
+All enabled project clang-tidy checks remain active and warnings are errors.
+LLVM's default filtering excludes diagnostics from non-user/system code; it is
+not a project-warning suppression. No project-specific suppression was added.
 
-## LeakSanitizer: unsupported locally, pending on Linux
+## Local macOS verification
 
-A standalone temporary known-leak program was compiled with:
+Local checks ran on **macOS 15.7.9 / Darwin 24.6.0 ARM64**, with Apple Clang and
+Apple clang-format **17.0.0** (`clang-1700.0.13.5`), CMake/CTest **4.4.3**,
+Python **3.13.7**, NumPy **2.5.3**, and matplotlib **3.11.2**.
 
-```bash
-clang++ -std=c++17 -g -O0 -fsanitize=leak \
-  /tmp/mlrt-quality-cIxd2X/leak_probe.cpp -o /tmp/mlrt-quality-cIxd2X/leak_probe
-```
+Clean Release/Debug and separate ASan/UBSan/TSan builds passed all five CTest entries
+and three extra stress repetitions each after the analysis fixes. The example
+model's earlier explicit NumPy comparison had maximum error **1.79e-7**; the seeded
+medium **256→512→256→16** model had maximum error **5.98e-8**, with unchanged
+tolerances. A pre/post-format comparison produced byte-identical predictions for
+256 rows of each model. Medium weights were generated with zero training steps;
+no trained-accuracy claim is made for that workload.
 
-Apple Clang returned exit code 1: `unsupported option '-fsanitize=leak' for target
-'arm64-apple-darwin24.6.0'`. The same source compiled successfully with
-`-fsanitize=address`; running with `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`
-aborted with `AddressSanitizer: detect_leaks is not supported on this platform.`
-These are direct support-probe results, **not successful leak checks**. Local ASan
-runs explicitly used `detect_leaks=0`.
+A local test-harness defect was also corrected: direct interpreter shebangs failed
+when the virtual-environment path contained a space. Mock CLI scripts now select
+the current interpreter through PATH. The benchmark-failure regression cases pass
+from a workspace containing a space.
 
-Linux CI sets `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1` and
-`LSAN_OPTIONS=exitcode=23`. Before project tests, a separate temporary ASan canary
-must report `LeakSanitizer: detected memory leaks` and exit 23. A missing report,
-wrong status, or unexpectedly successful canary fails CI. The subsequent normal
-tests must all exit successfully. Intentionally leaking code is not in a project
-build target or the normal public CTest suite. Linux execution remains pending;
-the canary has not been claimed to detect leaks on this host.
+Apple Clang rejected `-fsanitize=leak` for `arm64-apple-darwin24.6.0`. An ASan probe
+with `detect_leaks=1` also aborted with `detect_leaks is not supported on this
+platform`. Local ASan therefore used `detect_leaks=0`; its pass is **not** leak
+verification. Leak verification comes from Linux CI. clang-tidy is unavailable
+locally; its verified result likewise comes from Linux.
 
-## NumPy agreement and benchmark smoke
+## Reproducing checks
 
-The example model passed ten configurations with maximum absolute error
-**1.79e-7**. The seeded medium network, **256→512→256→16**, has 267,024 parameters
-and passed with maximum error **5.98e-8**. Both use the unchanged
-`atol=2e-6, rtol=2e-5`, with matching predicted classes. Medium weights were
-seeded with zero training steps; no accuracy/training claim is made.
+[README build and test instructions](../README.md#build-and-test) cover local
+setup, example generation, NumPy comparison, and stress tests. Its
+[developer-tool instructions](../README.md#sanitizers-and-developer-tools)
+cover formatting, analysis, and macOS sanitizer settings.
 
-A separately compiled pre-format snapshot and the formatted Release build produced
-**byte-identical prediction CSVs for 256 tiny-model rows and 256 medium-model rows**.
-
-Two short sweeps each tested a synchronous baseline and four concurrent settings:
-1/2 workers × batch sizes 1/4, eight clients, 256 measured requests and 32 warm-up
-requests per run, one repetition. All ten runs completed: **2,560 measured requests**;
-320 warm-up requests were excluded. Results, environment metadata, and eight plots
-are under ignored `benchmarks/local/quality-followup/{tiny,medium}`. Throughput
-identities, measured counts, JSON schema/numbers, and complete-run status were
-checked. A separate 17-request / 7-warm-up CLI run also passed metrics JSON parsing.
-Matplotlib emitted nonfatal font-cache warnings on first use; all plots were produced.
-
-Machine-specific observed throughput ranges were **187,764–359,067 requests/s**
-for the tiny model and **42,214–76,601 requests/s** for the medium model. These
-millisecond-scale single-repetition runs are pipeline smoke tests, not evidence of
-stable speedups or a replacement for the saved longer benchmark experiment.
+On Linux, with Python requirements installed, use a new directory for every build:
 
 ```bash
-source .venv/bin/activate
-quality_dir=/tmp/mlrt-quality-cIxd2X
-python python/validate.py --cli "$quality_dir/release/ml_inference_cli" \
-  --model models/example_mlp.bin --input data/sample_inputs.csv
-python python/generate_model.py --widths 256 512 256 16 --steps 0 --samples 64 \
-  --model "$quality_dir/medium.bin" --data "$quality_dir/medium.csv"
-python python/validate.py --cli "$quality_dir/release/ml_inference_cli" \
-  --model "$quality_dir/medium.bin" --input "$quality_dir/medium.csv"
-python python/benchmark.py --cli "$quality_dir/release/ml_inference_cli" \
-  --requests 256 --warmup 32 --repeats 1 --threads 1 2 --batch-sizes 1 4 \
-  --clients 8 --output benchmarks/local/quality-followup/tiny
-python python/benchmark.py --cli "$quality_dir/release/ml_inference_cli" \
-  --model "$quality_dir/medium.bin" --input "$quality_dir/medium.csv" \
-  --requests 256 --warmup 32 --repeats 1 --threads 1 2 --batch-sizes 1 4 \
-  --clients 8 --output benchmarks/local/quality-followup/medium
-"$quality_dir/release/ml_inference_cli" --model models/example_mlp.bin \
-  --input data/sample_inputs.csv --requests 17 --warmup 7 --threads 2 \
-  --batch-size 4 --clients 8 --metrics "$quality_dir/metrics.json" \
-  --output "$quality_dir/predictions.csv" --quiet
-python -m json.tool "$quality_dir/metrics.json"
+cmake -S . -B build-linux-asan -DCMAKE_BUILD_TYPE=Debug \
+  -DMLRT_SANITIZER=address -DMLRT_REQUIRE_PYTHON_TESTS=ON \
+  -DPython3_EXECUTABLE="$(command -v python)"
+cmake --build build-linux-asan --parallel 2
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=exitcode=23 \
+  ctest --test-dir build-linux-asan --output-on-failure --verbose
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=exitcode=23 \
+  ctest --test-dir build-linux-asan -R concurrency_stress \
+    --repeat until-fail:3 --output-on-failure --verbose
 ```
 
-The actual benchmark launches additionally set `MPLCONFIGDIR` inside the temporary
-quality directory to keep plotting caches out of the repository.
+Use separate builds with `MLRT_SANITIZER=undefined` and `thread` for UBSan and TSan,
+with the environment options described above. The exact CI commands and leak
+canary are in [the workflow](../.github/workflows/ci.yml). Its default permissions
+are read-only, checkout credentials are not persisted, and all failures propagate.
 
-## Linux workflow: configured, not executed
-
-The [workflow](../.github/workflows/ci.yml) targets Ubuntu 24.04 with read-only
-`contents` permission and checkout credential persistence disabled. It uses the
-current stable major tags [checkout v7](https://github.com/actions/checkout/releases/tag/v7.0.1)
-and [setup-python v7](https://github.com/actions/setup-python/releases/tag/v7.0.0).
-
-Five independent jobs build Release, Debug, ASan with leak detection, UBSan, and
-TSan. Every configuration installs `requirements.txt`, requires Python/NumPy test
-registration, runs all five CTest entries, and repeats concurrency stress three
-more times. The Release job smoke-tests benchmark CSV/JSON and plotting. Any test
-or sanitizer failure fails the job; `continue-on-error` is not used.
-
-A sixth job installs Ubuntu's LLVM 17 tools and configures a real Clang compilation
-database, then runs formatting and tidy analysis without an unnecessary preliminary
-compilation. [Ubuntu's clang-tidy-17 package](https://packages.ubuntu.com/noble/clang-tidy-17)
-and [clang-format-17 package](https://packages.ubuntu.com/noble/arm64/clang-format-17)
-belong to the same 17.0.6 toolchain series. The workflow pins the LLVM major version;
-Ubuntu package revisions may receive updates.
-
-The analysis job's commands are documented in the README. Unlike the normal test
-jobs, it disables only Python test registration; the C++ test translation units
-remain in the compilation database and are analyzed.
-
-Local validation parsed the workflow with Ruby's YAML parser, asserted trigger,
-runner, matrix, permission, and failure-handling settings, and syntax-checked each
-embedded script with `bash -n` after substituting matrix placeholders. `actionlint`
-is unavailable. YAML parsing and shell syntax checks do not validate GitHub's full
-workflow semantics or replace execution on a runner.
-
-Docker, Podman, and Colima are unavailable. No Linux build, sanitizer, formatter,
-static analyzer, or leak-detection success is claimed. The first push must be
-followed by a successful Linux workflow; any resulting diagnostics need resolution
-before describing those checks as verified.
+Local workflow checks parsed YAML and checked shell syntax. `actionlint` and Linux
+container tools were unavailable locally; actual GitHub Actions execution now
+provides Linux verification. Other operating systems, CPU architectures, and
+compiler versions have not been tested. Passing these checks is not production
+hardening or a formal concurrency proof. Scalar kernels, unbounded queues, and
+closed-loop benchmark limitations remain documented.
