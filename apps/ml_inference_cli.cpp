@@ -171,12 +171,13 @@ Resources resources() {
 #if defined(__unix__) || defined(__APPLE__)
     rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) == 0) {
-        const double cpu = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec / 1e6 + usage.ru_stime.tv_sec +
-                           usage.ru_stime.tv_usec / 1e6;
+        const double cpu =
+            static_cast<double>(usage.ru_utime.tv_sec) + static_cast<double>(usage.ru_utime.tv_usec) / 1e6 +
+            static_cast<double>(usage.ru_stime.tv_sec) + static_cast<double>(usage.ru_stime.tv_usec) / 1e6;
 #if defined(__APPLE__)
-        return {cpu, usage.ru_maxrss / (1024.0 * 1024.0)};
+        return {cpu, static_cast<double>(usage.ru_maxrss) / (1024.0 * 1024.0)};
 #else
-        return {cpu, usage.ru_maxrss / 1024.0};
+        return {cpu, static_cast<double>(usage.ru_maxrss) / 1024.0};
 #endif
     }
 #endif
@@ -274,7 +275,8 @@ void metrics(std::ostream &out, const Options &o, Run &r) {
         << "  \"threads\": " << o.threads << ",\n  \"batch_size\": " << o.batch
         << ",\n  \"batch_timeout_ms\": " << o.timeout_ms << ",\n  \"clients\": " << o.clients
         << ",\n  \"warmup_requests\": " << o.warmup << ",\n  \"total_requests\": " << o.requests
-        << ",\n  \"total_seconds\": " << r.seconds << ",\n  \"throughput_rps\": " << o.requests / r.seconds
+        << ",\n  \"total_seconds\": " << r.seconds
+        << ",\n  \"throughput_rps\": " << static_cast<double>(o.requests) / r.seconds
         << ",\n  \"mean_latency_ms\": " << latency.mean << ",\n  \"median_latency_ms\": " << latency.median
         << ",\n  \"p95_latency_ms\": " << latency.p95 << ",\n  \"p99_latency_ms\": " << latency.p99
         << ",\n  \"cpu_seconds\": ";
@@ -287,10 +289,11 @@ void metrics(std::ostream &out, const Options &o, Run &r) {
         out << r.rss;
     else
         out << "null";
-    out << ",\n  \"executed_batches\": " << r.stats.batches
-        << ",\n  \"mean_batch_size\": " << static_cast<double>(r.stats.samples) / r.stats.batches
-        << ",\n  \"model_compute_ms\": " << r.stats.compute_ns / 1e6
-        << ",\n  \"model_compute_ms_per_request\": " << r.stats.compute_ns / 1e6 / o.requests << "\n}\n";
+    out << ",\n  \"executed_batches\": " << r.stats.batches << ",\n  \"mean_batch_size\": "
+        << static_cast<double>(r.stats.samples) / static_cast<double>(r.stats.batches)
+        << ",\n  \"model_compute_ms\": " << static_cast<double>(r.stats.compute_ns) / 1e6
+        << ",\n  \"model_compute_ms_per_request\": "
+        << static_cast<double>(r.stats.compute_ns) / 1e6 / static_cast<double>(o.requests) << "\n}\n";
 }
 } // namespace
 int main(int argc, char **argv) {
@@ -360,7 +363,7 @@ int main(int argc, char **argv) {
                 throw std::runtime_error("failed writing metrics");
         }
         std::cerr << "Processed " << options.requests << " requests in " << result.seconds << " s ("
-                  << options.requests / result.seconds << " requests/s)\n";
+                  << static_cast<double>(options.requests) / result.seconds << " requests/s)\n";
     } catch (const std::exception &e) {
         std::cerr << "error: " << e.what() << '\n';
         return 1;

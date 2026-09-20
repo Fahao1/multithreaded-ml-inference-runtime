@@ -10,7 +10,7 @@
 
 namespace ml_runtime {
 namespace {
-constexpr std::size_t max_bytes = 256 * 1024 * 1024;
+constexpr std::size_t max_bytes = std::size_t{256} * 1024 * 1024;
 constexpr std::size_t max_width = 65536;
 constexpr std::size_t max_layers = 256;
 constexpr std::array<char, 8> magic = {'M', 'L', 'R', 'T', 'B', 'I', 'N', '\0'};

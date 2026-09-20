@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -150,7 +151,7 @@ void model_tests() {
         throws([&] { Model::load(path); });
     };
     for (std::size_t n = 0; n < bytes.size(); ++n)
-        reject(std::vector<char>(bytes.begin(), bytes.begin() + n));
+        reject(std::vector<char>(bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(n)));
     auto bad = bytes;
     bad[0] = 'X';
     reject(bad);
@@ -188,6 +189,7 @@ void pool_tests() {
     throws([] { ThreadPool pool(0); });
     ThreadPool pool(4);
     std::vector<std::future<int>> futures;
+    futures.reserve(200);
     for (int i = 0; i < 200; ++i)
         futures.push_back(pool.submit([i] { return i * i; }));
     for (int i = 0; i < 200; ++i)
@@ -227,13 +229,17 @@ void engine_tests() {
         throws([&] { engine.predict_batch(Tensor({2, 3})); });
         throws([&] { engine.predict_async({0, std::numeric_limits<float>::quiet_NaN()}); });
         std::vector<std::future<void>> clients;
+        clients.reserve(8);
         for (int client = 0; client < 8; ++client)
             clients.push_back(std::async(std::launch::async, [&, client] {
                 std::vector<std::future<Tensor>> results;
+                results.reserve(64);
                 for (int i = 0; i < 64; ++i)
-                    results.push_back(engine.predict_async({i * 0.1f, client * -0.2f}));
+                    results.push_back(engine.predict_async(
+                        {static_cast<float>(i) * 0.1f, static_cast<float>(client) * -0.2f}));
                 for (int i = 0; i < 64; ++i) {
-                    const auto expected = model->forward(Tensor({1, 2}, {i * 0.1f, client * -0.2f}));
+                    const auto expected = model->forward(
+                        Tensor({1, 2}, {static_cast<float>(i) * 0.1f, static_cast<float>(client) * -0.2f}));
                     const auto actual = results[i].get();
                     for (std::size_t j = 0; j < actual.size(); ++j)
                         near(actual[j], expected[j]);
@@ -267,6 +273,7 @@ void batching_tests() {
         auto first = engine.predict_async({1, 2});
         check(first.wait_for(10ms) == std::future_status::timeout, "partial batch executed too early");
         std::vector<std::future<Tensor>> rest;
+        rest.reserve(3);
         for (int i = 0; i < 3; ++i)
             rest.push_back(engine.predict_async({static_cast<float>(i), 1}));
         check(first.wait_for(2s) == std::future_status::ready, "full batch did not trigger");
@@ -322,6 +329,7 @@ void stress_tests() {
             std::promise<void> go;
             auto start = go.get_future().share();
             std::vector<std::future<void>> producers;
+            producers.reserve(clients);
             for (int c = 0; c < clients; ++c)
                 producers.push_back(std::async(std::launch::async, [&, c] {
                     start.wait();
@@ -342,7 +350,8 @@ void stress_tests() {
             for (auto &producer : producers)
                 producer.get();
             engine.shutdown();
-            check(engine.stats().samples == clients * requests, "lost or duplicated inference");
+            check(engine.stats().samples == static_cast<std::uint64_t>(clients) * requests,
+                  "lost or duplicated inference");
             checked += engine.stats().samples;
         }
     for (int repetition = 0; repetition < 20; ++repetition) {
@@ -351,6 +360,7 @@ void stress_tests() {
         std::promise<void> go;
         const auto start = go.get_future().share();
         std::vector<std::future<std::size_t>> producers;
+        producers.reserve(4);
         for (int c = 0; c < 4; ++c)
             producers.push_back(std::async(std::launch::async, [&, c] {
                 std::vector<std::future<Tensor>> accepted;
