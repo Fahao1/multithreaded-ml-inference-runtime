@@ -106,8 +106,7 @@ jobs:
         run: >-
           cmake -S . -B build-quality -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_CXX_COMPILER=clang++-17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          -DMLRT_PYTHON_TESTS=OFF -DMLRT_CLANG_FORMAT=clang-format-17
-          -DMLRT_CLANG_TIDY=clang-tidy-17
+          -DMLRT_PYTHON_TESTS=OFF
       - name: Check project C++ formatting
         run: cmake --build build-quality --target format-check
       - name: Analyze all project C++ sources, including tests

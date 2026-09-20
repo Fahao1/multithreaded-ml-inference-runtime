@@ -304,8 +304,7 @@ cmake --build build-debug --target format-check
 # Linux CI commands after installing clang-17, clang-format-17, clang-tidy-17:
 cmake -S . -B build-quality -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_CXX_COMPILER=clang++-17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DMLRT_PYTHON_TESTS=OFF -DMLRT_CLANG_FORMAT=clang-format-17 \
-  -DMLRT_CLANG_TIDY=clang-tidy-17
+  -DMLRT_PYTHON_TESTS=OFF
 cmake --build build-quality --target format-check
 cmake --build build-quality --target tidy-check
 ```
