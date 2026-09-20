@@ -1,0 +1,114 @@
+name: Linux quality checks
+'on': [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CXX: g++
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      LSAN_OPTIONS: exitcode=23
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      TSAN_OPTIONS: halt_on_error=1
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Release
+            build_type: Release
+            sanitizer: ""
+          - name: Debug
+            build_type: Debug
+            sanitizer: ""
+          - name: ASan and leaks
+            build_type: Debug
+            sanitizer: address
+          - name: UBSan
+            build_type: Debug
+            sanitizer: undefined
+          - name: TSan
+            build_type: Debug
+            sanitizer: thread
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Record verification environment
+        run: |
+          uname -sm
+          cat /etc/os-release
+          "$CXX" --version
+          cmake --version
+          python --version
+          python -c 'import numpy, matplotlib; print("NumPy", numpy.__version__, "matplotlib", matplotlib.__version__)'
+      - name: Configure
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DMLRT_SANITIZER=${{ matrix.sanitizer }}
+          -DPython3_EXECUTABLE=$(which python)
+          -DMLRT_REQUIRE_PYTHON_TESTS=ON
+      - run: cmake --build build --parallel 2
+      # Canary lives outside the source tree and is not a CTest/normal build target.
+      - name: Confirm Linux leak detection is active
+        if: matrix.sanitizer == 'address'
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/leak_probe.cpp" <<'CPP'
+          #include <cstdlib>
+          int main() {
+            auto* p = static_cast<volatile char*>(std::malloc(123));
+            p[0] = 1;
+            return 0;
+          }
+          CPP
+          "$CXX" -std=c++17 -g -O0 -fsanitize=address "$RUNNER_TEMP/leak_probe.cpp" -o "$RUNNER_TEMP/leak_probe"
+          if "$RUNNER_TEMP/leak_probe" > "$RUNNER_TEMP/leak_probe.log" 2>&1; then
+            echo 'Expected LeakSanitizer to reject the known leak'
+            exit 1
+          else
+            status=$?
+          fi
+          cat "$RUNNER_TEMP/leak_probe.log"
+          test "$status" -eq 23
+          grep -q 'LeakSanitizer: detected memory leaks' "$RUNNER_TEMP/leak_probe.log"
+      - run: ctest --test-dir build --output-on-failure --verbose
+      - name: Repeated concurrency stress
+        run: ctest --test-dir build -R concurrency_stress --repeat until-fail:3 --output-on-failure --verbose
+      - name: Benchmark smoke test
+        if: matrix.build_type == 'Release'
+        run: |
+          python python/generate_model.py
+          python python/benchmark.py --requests 128 --warmup 32 --repeats 1 --threads 1 2 --batch-sizes 1 4 --clients 8
+
+  code-quality:
+    name: LLVM 17 quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install LLVM 17 developer tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y clang-17 clang-format-17 clang-tidy-17
+          clang-format-17 --version
+          clang-tidy-17 --version
+      - name: Configure actual compilation database
+        run: >-
+          cmake -S . -B build-quality -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++-17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          -DMLRT_PYTHON_TESTS=OFF -DMLRT_CLANG_FORMAT=clang-format-17
+          -DMLRT_CLANG_TIDY=clang-tidy-17
+      - name: Check project C++ formatting
+        run: cmake --build build-quality --target format-check
+      - name: Analyze all project C++ sources, including tests
+        run: cmake --build build-quality --target tidy-check

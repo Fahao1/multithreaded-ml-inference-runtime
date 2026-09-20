@@ -1,0 +1,16 @@
+{
+  "seed": 42,
+  "sgd_steps": 400,
+  "training_samples": 512,
+  "widths": [
+    32,
+    64,
+    32,
+    4
+  ],
+  "sample_count": 256,
+  "task": "synthetic linear-teacher classification",
+  "training_accuracy": 1.0,
+  "sample_accuracy": 0.81640625,
+  "numpy_version": "2.5.3"
+}
