@@ -14,6 +14,22 @@ Runtime. Verified platforms are Ubuntu 24.04 x86_64 in GitHub Actions and macOS
 15.7.9 ARM64 locally. Linux builds use GCC 13.3; static analysis uses LLVM 17.0.6.
 See [verification results](docs/verification.md) for the executed checks and limits.
 
+## Results at a glance
+
+| Result | Measurement |
+|---|---:|
+| MNIST test accuracy | 97.75% |
+| Python/C++ class agreement | 100% |
+| Maximum probability difference | `2.39e-7` |
+| Peak measured throughput | 194,697 requests/s |
+| Linux CI | 6/6 jobs passed |
+
+Throughput is the median of three runs for the fastest measured MNIST configuration:
+Apple M4 Pro, two workers, batch size 1, 32 concurrent clients, Release build.
+Performance is workload- and hardware-specific; batch size 16 did not improve
+throughput for this workload. The [MNIST guide](examples/mnist/README.md) links
+the detailed methodology and raw results.
+
 ## Scope
 
 - Contiguous float32 tensors with RAII, checked shapes, debug indexing assertions,
@@ -77,6 +93,15 @@ explains the locks, deadlines, error paths, memory decisions, and lifetime contr
 ├── models/example_mlp.bin        # small trained example + metadata JSON
 ├── data/                        # 256 inputs + reference prediction CSV
 ├── benchmarks/example-run/      # actual local measurements and four plots
+├── examples/mnist/
+│   ├── README.md, requirements.txt
+│   ├── data.py, train_export.py  # dataset validation, training, and export
+│   ├── evaluate.py, run_demo.py  # full evaluation and offline quick demo
+│   ├── test_mnist.py
+│   ├── mnist_mlp.bin, model_metadata.json
+│   ├── sample_inputs.csv, sample_labels.csv, sample_predictions.csv
+│   ├── predictions.png
+│   └── benchmark/               # raw measurements, environment, and plots
 ├── docs/
 │   ├── architecture.md
 │   ├── model_format.md
@@ -86,15 +111,16 @@ explains the locks, deadlines, error paths, memory decisions, and lifetime contr
 ```
 
 Build directories, the virtual environment, and new `benchmarks/local` runs are
-ignored. Only the small example fixtures and one measured example run are intended
-for version control.
+ignored, as are MNIST downloads and regenerated local outputs. Only selected
+example fixtures and benchmark results are tracked.
 
 ## Build and test
 
 Prerequisites: a C++17 compiler, CMake 3.20+, a native build tool (`make` or Ninja),
 POSIX threads, and Python 3.9+ for tools. Ubuntu's `build-essential`, `cmake`, and
-`python3-venv` packages provide the system prerequisites. Python requires only
-NumPy and matplotlib; there is no pandas, PyTorch, or psutil dependency.
+`python3-venv` packages provide the system prerequisites. The core Python tools
+require only NumPy and matplotlib; full MNIST training additionally uses the
+dependencies listed in [examples/mnist/requirements.txt](examples/mnist/requirements.txt).
 
 From the repository root:
 
