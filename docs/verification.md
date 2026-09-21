@@ -151,3 +151,23 @@ provides Linux verification. Other operating systems, CPU architectures, and
 compiler versions have not been tested. Passing these checks is not production
 hardening or a formal concurrency proof. Scalar kernels, unbounded queues, and
 closed-loop benchmark limitations remain documented.
+
+
+## MNIST demonstration verification
+
+The feature adds an offline sixth CTest entry, `mnist_smoke`; the five existing
+entries and their tolerances remain unchanged. On macOS 15.7.9 ARM64, clean
+Release/Debug and separate ASan, UBSan, and TSan builds passed all six entries.
+Release and Debug each passed three extra concurrency stress repetitions.
+Apple clang-format 17 passed; LLVM 17 clang-tidy and Linux leak detection remain
+part of the unchanged required Linux workflow. Local ASan still does not verify
+leaks on this host.
+
+The full standard MNIST evaluation produced 97.75% accuracy on 10,000 test
+images, 100% Python/C++ class agreement, and maximum absolute probability error
+2.387518e-7 (atol 2e-6, rtol 2e-5). A second complete training run reproduced the
+same exported model SHA-256. The quick demo, generated image, metadata JSON,
+and benchmark CSV/JSON checks passed. See the [MNIST guide](../examples/mnist/README.md)
+for exact reproduction commands, environment, raw measurements, and dataset terms.
+CI runs the offline included-fixture smoke test in every build/sanitizer job;
+it does not download MNIST or claim to rerun full training/test-set evaluation.

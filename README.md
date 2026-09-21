@@ -119,9 +119,10 @@ ctest --test-dir build-debug --output-on-failure
 The library target is `ml_runtime`; the executable is `ml_inference_cli`. A normal
 C++ build needs no Python packages. When NumPy is available at configuration time,
 CMake registers `numpy_validation` and `tool_tests` alongside `runtime_tests`,
-`concurrency_stress`, and `metrics_tests`. Check the CTest list if running without
+`concurrency_stress`, and `metrics_tests`. With matplotlib available, it also
+registers the offline `mnist_smoke` test. Check the CTest list if running without
 the virtual environment. `-DMLRT_REQUIRE_PYTHON_TESTS=ON` makes missing Python/NumPy
-a configuration error, as used in CI. No external C++ dependencies are fetched.
+a configuration error, as used in CI; it also requires matplotlib for MNIST. No external C++ dependencies are fetched.
 
 The C++ suite covers tensor indexing/shapes/moves, operators, stable activations,
 serialization, every truncated prefix of an example model, malformed headers,
@@ -184,6 +185,22 @@ hard links and symlinks are checked too.
 client count in concurrent mode (default 32). A single synchronous caller with
 batching enabled generally waits for the batch timeout. The CLI exercises dynamic
 individual requests; the C++ API additionally accepts explicit batch tensors.
+
+## MNIST Demonstration
+
+The included **784 → 128 ReLU → 10 softmax** dense classifier achieved
+**97.75% accuracy on all 10,000 MNIST test images**, with 100% Python/C++ class
+agreement. This uses the existing runtime and binary format; it adds no convolution,
+LLM, or transformer support. The quick demo requires no dataset download or training:
+
+```bash
+python examples/mnist/run_demo.py --cli build/ml_inference_cli --mode quick
+```
+
+![MNIST test digits with actual labels, C++ predictions, and confidence](examples/mnist/predictions.png)
+
+See the [MNIST guide](examples/mnist/README.md) for full reproduction, numerical
+validation, machine-specific benchmarks, and the fixtures' CC BY-SA 3.0 attribution.
 
 ## C++ API
 
@@ -315,7 +332,7 @@ cmake --build build-quality --target tidy-check
 
 Linux CI passed all six jobs: Release, Debug, ASan with leak detection, UBSan,
 TSan, and LLVM 17 formatting/static analysis. Every build configuration passed all
-five CTest entries and three additional concurrency stress repetitions. The Release
+five original CTest entries and three additional concurrency stress repetitions. The Release
 job also generated a model and completed benchmark CSV/JSON and plotting checks.
 No tests, numerical tolerances, sanitizer coverage, or analyzer checks were weakened.
 

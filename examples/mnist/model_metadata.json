@@ -1,0 +1,93 @@
+{
+  "dataset": {
+    "name": "MNIST",
+    "source": "https://storage.googleapis.com/cvdf-datasets/mnist/",
+    "source_documentation": "https://github.com/cvdfoundation/mnist",
+    "compressed_md5": {
+      "train-images-idx3-ubyte.gz": "f68b3c2dcbeaaa9fbdd348bbdeb94873",
+      "train-labels-idx1-ubyte.gz": "d53e105ee54ea40749a09fcbcd1e9432",
+      "t10k-images-idx3-ubyte.gz": "9fb629c4189551a2d022fa330f9573f3",
+      "t10k-labels-idx1-ubyte.gz": "ec29112dd5afa0611ce80d1b7f02629c"
+    },
+    "train_samples": 60000,
+    "test_samples": 10000
+  },
+  "architecture": [
+    784,
+    128,
+    10
+  ],
+  "activations": [
+    "relu",
+    "softmax"
+  ],
+  "preprocessing": "28x28 row-major grayscale pixels / 255, float32; no centering or augmentation",
+  "seed": 42,
+  "sample_test_indices": [
+    858,
+    891,
+    941,
+    2013,
+    4325,
+    4383,
+    5262,
+    6537,
+    6968,
+    7174,
+    7355,
+    7609,
+    7728,
+    7860,
+    8577,
+    9752
+  ],
+  "versions": {
+    "python": "3.13.7",
+    "numpy": "2.5.3",
+    "scikit_learn": "1.7.2",
+    "scipy": "1.18.1"
+  },
+  "training": {
+    "hidden_layer_sizes": [
+      128
+    ],
+    "activation": "relu",
+    "solver": "adam",
+    "batch_size": 256,
+    "learning_rate_init": 0.001,
+    "alpha": 0.0001,
+    "random_state": 42,
+    "shuffle": true,
+    "epochs": 20,
+    "blas_threads": 1,
+    "seconds": 2.945725834055338,
+    "method": "partial_fit over full training split each epoch"
+  },
+  "model_sha256": "28f1b5dc46414eff5ad51e784ab8c710b3be4a7b86c53bf337417d8e74b4dd65",
+  "format": "MLRTBIN v1",
+  "validation": {
+    "test_accuracy": 0.9775,
+    "evaluated_samples": 10000,
+    "class_agreement": 1.0,
+    "max_probability_difference": 2.387518005519951e-07,
+    "tolerance": {
+      "atol": 2e-06,
+      "rtol": 2e-05
+    },
+    "configurations": [
+      {
+        "threads": 1,
+        "batch_size": 1
+      },
+      {
+        "threads": 2,
+        "batch_size": 16
+      }
+    ],
+    "sklearn_export_max_difference": 0.0,
+    "sklearn_cpp_max_difference": 2.387518005519951e-07
+  },
+  "created_utc": "2026-09-21T06:58:18.402931+00:00",
+  "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+  "machine": "arm64"
+}
