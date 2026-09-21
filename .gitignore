@@ -60,3 +60,7 @@ Desktop.ini
 /docs/audit_commands.json
 /docs/first_commit_files.txt
 /benchmarks/audit-smoke/
+
+# MNIST downloads and regenerated local results (small published fixtures are explicit).
+/examples/mnist/.cache/
+/examples/mnist/local/

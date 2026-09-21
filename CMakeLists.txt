@@ -76,6 +76,17 @@ if(BUILD_TESTING)
         add_test(NAME tool_tests COMMAND ${Python3_EXECUTABLE}
           ${CMAKE_CURRENT_SOURCE_DIR}/tests/tool_tests.py --cli $<TARGET_FILE:ml_inference_cli>)
         set_tests_properties(tool_tests PROPERTIES TIMEOUT 120)
+        execute_process(COMMAND ${Python3_EXECUTABLE} -c "import matplotlib"
+          RESULT_VARIABLE MATPLOTLIB_MISSING OUTPUT_QUIET ERROR_QUIET)
+        if(NOT MATPLOTLIB_MISSING)
+          add_test(NAME mnist_smoke COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/examples/mnist/test_mnist.py --cli $<TARGET_FILE:ml_inference_cli>)
+          set_tests_properties(mnist_smoke PROPERTIES TIMEOUT 120)
+        elseif(MLRT_REQUIRE_PYTHON_TESTS)
+          message(FATAL_ERROR "matplotlib is required for the MNIST integration test")
+        else()
+          message(STATUS "matplotlib unavailable: MNIST integration test not registered")
+        endif()
       else()
         if(MLRT_REQUIRE_PYTHON_TESTS)
           message(FATAL_ERROR "NumPy is required for Python integration tests")

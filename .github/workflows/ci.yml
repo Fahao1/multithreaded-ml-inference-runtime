@@ -80,6 +80,7 @@ jobs:
           test "$status" -eq 23
           grep -q 'LeakSanitizer: detected memory leaks' "$RUNNER_TEMP/leak_probe.log"
       - run: ctest --test-dir build --output-on-failure --verbose
+      # mnist_smoke is registered in CTest; uses only included fixtures and core Python dependencies.
       - name: Repeated concurrency stress
         run: ctest --test-dir build -R concurrency_stress --repeat until-fail:3 --output-on-failure --verbose
       - name: Benchmark smoke test
